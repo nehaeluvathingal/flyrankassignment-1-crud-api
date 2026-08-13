@@ -7,6 +7,10 @@ from typing import Optional, List, Dict, Any
 load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 
+# ---------------------------------------------------------
+# PostgreSQL Database Operations
+# ---------------------------------------------------------
+
 def get_db_connection():
     """
     Helper to establish a connection to the PostgreSQL database.
@@ -71,3 +75,64 @@ def get_task(task_id: int) -> Optional[Dict[str, Any]]:
     if row:
         return {"id": row[0], "title": row[1], "done": bool(row[2])}
     return None
+
+def create_task(title: str) -> Dict[str, Any]:
+    """
+    Create a new task in PostgreSQL database.
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            # Parameterized insert using %s placeholder
+            cursor.execute(
+                "INSERT INTO tasks (title, done) VALUES (%s, %s) RETURNING id",
+                (title, False)
+            )
+            new_id = cursor.fetchone()[0]
+            conn.commit()
+            
+    return {"id": new_id, "title": title, "done": False}
+
+def update_task(task_id: int, title: Optional[str], done: Optional[bool]) -> Optional[Dict[str, Any]]:
+    """
+    Update a task's title and/or done status in PostgreSQL database.
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            # 1. Fetch current task state to see if it exists and to merge updates
+            cursor.execute("SELECT title, done FROM tasks WHERE id = %s", (task_id,))
+            row = cursor.fetchone()
+            if not row:
+                return None
+                
+            current_title, current_done = row[0], bool(row[1])
+            
+            # 2. Merge values
+            updated_title = title if title is not None else current_title
+            updated_done = done if done is not None else current_done
+            
+            # 3. Perform the UPDATE in the database using parameterized query
+            cursor.execute(
+                "UPDATE tasks SET title = %s, done = %s WHERE id = %s",
+                (updated_title, updated_done, task_id)
+            )
+            conn.commit()
+            
+    return {"id": task_id, "title": updated_title, "done": updated_done}
+
+def delete_task(task_id: int) -> bool:
+    """
+    Delete a task by ID from PostgreSQL database.
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            # 1. Check if the task exists
+            cursor.execute("SELECT id FROM tasks WHERE id = %s", (task_id,))
+            row = cursor.fetchone()
+            if not row:
+                return False
+                
+            # 2. Execute parameterized delete
+            cursor.execute("DELETE FROM tasks WHERE id = %s", (task_id,))
+            conn.commit()
+            
+    return True
