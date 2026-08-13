@@ -4,19 +4,19 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
 from typing import Optional, List
 import sqlite3
+import repository
 from contextlib import asynccontextmanager
 
+# SQLite database file for local A2 CRUD compatibility during migration stages
 DATABASE_FILE = "tasks.db"
 
-def init_db():
+def init_sqlite_db():
     """
-    Stage 0: Establish SQLite database, tables, and insert seed data if empty.
+    Keep the SQLite database initialized so the unchanged A2 endpoints continue to function
+    during the incremental PostgreSQL migration stages.
     """
-    # Open/create the tasks.db database file automatically
     conn = sqlite3.connect(DATABASE_FILE)
     cursor = conn.cursor()
-    
-    # Create the tasks table automatically if it does not exist
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -26,12 +26,10 @@ def init_db():
     """)
     conn.commit()
     
-    # Check if the tasks table is empty to avoid duplicating seed tasks
     cursor.execute("SELECT COUNT(*) FROM tasks")
     count = cursor.fetchone()[0]
     
     if count == 0:
-        # Insert exactly three example tasks using parameterized SQL
         example_tasks = [
             (1, "Buy groceries", 0),
             (2, "Clean the house", 1),
@@ -45,14 +43,16 @@ def init_db():
 # The lifespan context manager handles application startup events in FastAPI.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Run the database initialization and seeding on startup
-    init_db()
+    # Initialize the legacy SQLite database for unchanged endpoints
+    init_sqlite_db()
+    # Stage 1: Run the new PostgreSQL database initialization and seeding on startup
+    repository.init_db()
     yield
 
 # Initialize FastAPI application with lifespan event handler
 app = FastAPI(
     title="Task API",
-    description="A simple CRUD API for managing tasks with SQLite.",
+    description="A simple CRUD API for managing tasks with SQLite (migrating to PostgreSQL).",
     version="1.0",
     lifespan=lifespan
 )
