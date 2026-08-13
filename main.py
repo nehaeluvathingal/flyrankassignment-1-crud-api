@@ -135,24 +135,61 @@ async def health_check():
     }
 
 # ---------------------------------------------------------
-# Temporarily Commented Out CRUD Endpoints for Stage 0
+# Stage 1: GET Tasks (All and Single) Endpoints from SQLite
 # ---------------------------------------------------------
-# These endpoints reference the removed tasks_db list and will be
-# fully migrated to read/write from SQLite in Stages 1 to 3.
 
-# @app.get("/tasks", status_code=status.HTTP_200_OK)
-# async def get_tasks():
-#     """
-#     GET /tasks
-#     """
-#     pass
+@app.get("/tasks", status_code=status.HTTP_200_OK)
+async def get_tasks():
+    """
+    GET /tasks
+    Returns the full list of tasks stored in SQLite database.
+    """
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, title, done FROM tasks")
+    rows = cursor.fetchall()
+    conn.close()
+    
+    tasks = []
+    for row in rows:
+        tasks.append({
+            "id": row[0],
+            "title": row[1],
+            "done": bool(row[2])
+        })
+    return tasks
 
-# @app.get("/tasks/{id}", status_code=status.HTTP_200_OK)
-# async def get_task(id: int):
-#     """
-#     GET /tasks/{id}
-#     """
-#     pass
+@app.get("/tasks/{id}", status_code=status.HTTP_200_OK)
+async def get_task(id: int):
+    """
+    GET /tasks/{id}
+    Retrieves a single task by its unique integer ID from SQLite.
+    If the task does not exist, returns HTTP 404 and a JSON error message.
+    """
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    # Query using parameterized query with ? placeholder
+    cursor.execute("SELECT id, title, done FROM tasks WHERE id = ?", (id,))
+    row = cursor.fetchone()
+    conn.close()
+    
+    if row is not None:
+        return {
+            "id": row[0],
+            "title": row[1],
+            "done": bool(row[2])
+        }
+    
+    # Task not found, return 404 Response
+    return JSONResponse(
+        status_code=status.HTTP_404_NOT_FOUND,
+        content={"error": f"Task {id} not found"}
+    )
+
+# ---------------------------------------------------------
+# Temporarily Commented Out CRUD Endpoints for Stage 1
+# ---------------------------------------------------------
+# These will be fully migrated to SQLite in Stage 2 and Stage 3.
 
 # @app.post("/tasks", status_code=status.HTTP_201_CREATED)
 # async def create_task(task_in: TaskCreate):
