@@ -1,15 +1,41 @@
-# Task API - FastAPI CRUD Application
+# Task API - FastAPI CRUD Application with SQLite
 
-A beginner-friendly, in-memory CRUD API built using Python 3.10+ and FastAPI. This project serves as an introduction to constructing RESTful web services, validating request bodies with Pydantic, and managing API endpoints.
+A beginner-friendly CRUD API built using Python 3.10+, FastAPI, and SQLite. This project implements database-backed persistence, request validation using Pydantic, custom validation error handling, and interactive API documentation.
+
+---
+
+## Why SQLite?
+For this project, **SQLite** was chosen as the database engine because:
+- **Serverless & Self-Contained**: SQLite does not require running a separate database server process. The entire database is stored in a single file (`tasks.db`).
+- **Zero Configuration**: It requires no installation or setup steps, making it ideal for local development and beginner-friendly projects.
+- **Built-in Support**: SQLite is supported natively by Python's built-in `sqlite3` library, eliminating the need for heavy ORM installations or external database drivers.
+
+---
+
+## Database Architecture & Storage
+
+### Storage Location
+The database is stored in the project's root directory as a file named **`tasks.db`**.
+- **Automatic Creation**: If `tasks.db` does not exist when the application starts, it is automatically created by the system.
+- **Auto-Seeding**: Upon creation, if the `tasks` table is empty, the application automatically seeds it with three initial sample tasks.
+- **Git Ignore**: The local `tasks.db` file (and its temporary journal files) are listed in `.gitignore` and are intentionally not committed to the Git repository. The application dynamically handles database creation and seeding on startup, ensuring that temporary local database state does not pollute source control.
+
+### Database Schema
+The database contains a single table named `tasks` with the following column structure:
+
+| Column | Data Type | Constraints | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `INTEGER` | `PRIMARY KEY AUTOINCREMENT` | Auto-generated, unique sequential task ID |
+| `title` | `TEXT` | `NOT NULL` | The name/description of the task |
+| `done` | `BOOLEAN` | `NOT NULL CHECK (done IN (0, 1))` | Completion status (stored as `0` for False and `1` for True) |
 
 ---
 
 ## Features
-- **Full CRUD Support**: Create, read, update, and delete tasks dynamically.
-- **In-Memory Data Store**: Works out-of-the-box without requiring database installation or setup.
-- **Seeded Data**: Pre-populated with 3 example tasks for quick testing.
-- **Input Validation**: Uses Pydantic models to validate input data type constraints and enforce required fields.
-- **Custom Error Handling**: Returns HTTP 400 instead of the default 422 for malformed/empty payloads.
+- **SQLite Database Persistence**: All task modifications survive application and server restarts.
+- **Full CRUD Support**: Create, read, update, and delete tasks dynamically via SQL statements.
+- **Input Validation**: Uses Pydantic models to validate input data constraints and enforce required fields.
+- **Custom Error Handling**: Intercepts Pydantic validation errors to return HTTP 400 instead of HTTP 422 for malformed payloads.
 - **Interactive Documentation**: Auto-generated Swagger UI for browser-based testing.
 
 ---
@@ -68,6 +94,24 @@ Access the documentation at:
 | **POST** | `/tasks` | Create a new task (auto-assign ID) | `201 Created` | `400 Bad Request` |
 | **PUT** | `/tasks/{id}` | Update title and/or status of a task | `200 OK` | `400 Bad Request`, `404 Not Found` |
 | **DELETE**| `/tasks/{id}` | Remove a task by ID (returns empty response) | `204 No Content` | `404 Not Found` |
+
+---
+
+## Manual Database Exploration
+
+You can open and inspect the database manually using a database GUI viewer such as **DB Browser for SQLite**.
+
+### Example SQL Query
+To inspect all tasks stored in the database, write and execute the following query in your database viewer's SQL editor:
+```sql
+SELECT * FROM tasks;
+```
+* **Explanation**: This query selects and displays all columns (`id`, `title`, `done`) and all rows currently saved inside the `tasks` table. It demonstrates the live state of your database and can be used to confirm that changes made via the API are successfully persisted in SQLite.
+
+### Database Viewer Screenshot
+Below is a screenshot showing the DB Browser for SQLite interface loaded with the `tasks` database contents, displaying the three initial seeded tasks:
+
+![SQLite DB View](screenshots/db_browser_view.png)
 
 ---
 
@@ -147,15 +191,20 @@ curl -X DELETE http://localhost:8000/tasks/1
 
 ```text
 Assignment 1/
-├── main.py             # Single-file FastAPI CRUD implementation
+├── main.py             # Single-file FastAPI CRUD implementation backed by SQLite
 ├── requirements.txt    # Python dependencies (FastAPI, Uvicorn, Pydantic)
+├── .gitignore          # Instructs Git to ignore transient files (like tasks.db, journals)
+├── screenshots/        # Contains database viewer walkthrough screenshots
+│   └── db_browser_view.png
 └── README.md           # Getting started guide and API documentation
 ```
+
+> **Note**: The SQLite database file `tasks.db` is generated automatically when the application starts if it does not exist, and is therefore excluded from Git tracking via `.gitignore`.
 
 ---
 
 ## Future Improvements
-- **Persistent Data Store**: Add SQL Database integration (such as SQLite or PostgreSQL) using SQLAlchemy or SQLModel.
+- **PostgreSQL Migration**: Transition the project database from SQLite to PostgreSQL for multi-user, production-scale deployments.
 - **User Authentication**: Implement user registration and token-based authentication (OAuth2 / JWT tokens) to secure individual tasks.
 - **Unit & Integration Tests**: Implement test automation using `pytest` and FastAPI's `TestClient` to prevent regressions.
 - **Task Attributes**: Add extra attributes like priority levels, due dates, and categories.
