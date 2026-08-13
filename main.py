@@ -215,20 +215,84 @@ async def create_task(task_in: TaskCreate):
     }
 
 # ---------------------------------------------------------
-# Temporarily Commented Out CRUD Endpoints for Stage 2
+# Stage 3: PUT (Update) and DELETE (Remove) Endpoints using SQLite
 # ---------------------------------------------------------
-# These will be fully migrated to SQLite in Stage 3.
 
-# @app.put("/tasks/{id}", status_code=status.HTTP_200_OK)
-# async def update_task(id: int, task_in: TaskUpdate):
-#     """
-#     PUT /tasks/{id}
-#     """
-#     pass
+@app.put("/tasks/{id}", status_code=status.HTTP_200_OK)
+async def update_task(id: int, task_in: TaskUpdate):
+    """
+    PUT /tasks/{id}
+    Updates an existing task's title and/or completion status in SQLite.
+    - If the ID does not exist, returns HTTP 404.
+    - If the request body contains invalid values, returns HTTP 400.
+    """
+    # If the user passes an empty object or invalid fields, return HTTP 400.
+    if task_in.title is None and task_in.done is None:
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content={"error": "Invalid request body. You must update 'title' and/or 'done'."}
+        )
 
-# @app.delete("/tasks/{id}", response_class=Response)
-# async def delete_task(id: int):
-#     """
-#     DELETE /tasks/{id}
-#     """
-#     pass
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # 1. Fetch current task state to see if it exists and to merge updates
+    cursor.execute("SELECT title, done FROM tasks WHERE id = ?", (id,))
+    row = cursor.fetchone()
+    
+    if row is None:
+        conn.close()
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": f"Task {id} not found"}
+        )
+    
+    current_title, current_done = row[0], bool(row[1])
+    
+    # 2. Merge values
+    updated_title = task_in.title if task_in.title is not None else current_title
+    updated_done = task_in.done if task_in.done is not None else current_done
+    
+    # 3. Perform the UPDATE in the database using parameterized query
+    cursor.execute(
+        "UPDATE tasks SET title = ?, done = ? WHERE id = ?",
+        (updated_title, 1 if updated_done else 0, id)
+    )
+    conn.commit()
+    conn.close()
+    
+    return {
+        "id": id,
+        "title": updated_title,
+        "done": updated_done
+    }
+
+@app.delete("/tasks/{id}", response_class=Response)
+async def delete_task(id: int):
+    """
+    DELETE /tasks/{id}
+    Removes a task by its unique ID from SQLite.
+    - If the task exists, deletes it and returns HTTP 204 with no response body.
+    - If the ID is unknown, returns HTTP 404 with a JSON error message.
+    """
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    
+    # Check if the task exists
+    cursor.execute("SELECT id FROM tasks WHERE id = ?", (id,))
+    row = cursor.fetchone()
+    
+    if row is None:
+        conn.close()
+        return JSONResponse(
+            status_code=status.HTTP_404_NOT_FOUND,
+            content={"error": f"Task {id} not found"}
+        )
+        
+    # Parameterized SQL query for deletion
+    cursor.execute("DELETE FROM tasks WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    
+    # Return empty response with 204 No Content
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
