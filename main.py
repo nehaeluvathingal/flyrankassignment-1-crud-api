@@ -135,50 +135,27 @@ async def health_check():
     }
 
 # ---------------------------------------------------------
-# Stage 1: GET Tasks (All and Single) Endpoints from SQLite
+# Stage 2: GET Tasks (All and Single) Endpoints migrated to PostgreSQL
 # ---------------------------------------------------------
 
 @app.get("/tasks", status_code=status.HTTP_200_OK)
 async def get_tasks():
     """
     GET /tasks
-    Returns the full list of tasks stored in SQLite database.
+    Returns the full list of tasks stored in PostgreSQL database.
     """
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, title, done FROM tasks")
-    rows = cursor.fetchall()
-    conn.close()
-    
-    tasks = []
-    for row in rows:
-        tasks.append({
-            "id": row[0],
-            "title": row[1],
-            "done": bool(row[2])
-        })
-    return tasks
+    return repository.get_tasks()
 
 @app.get("/tasks/{id}", status_code=status.HTTP_200_OK)
 async def get_task(id: int):
     """
     GET /tasks/{id}
-    Retrieves a single task by its unique integer ID from SQLite.
+    Retrieves a single task by its unique integer ID from PostgreSQL.
     If the task does not exist, returns HTTP 404 and a JSON error message.
     """
-    conn = sqlite3.connect(DATABASE_FILE)
-    cursor = conn.cursor()
-    # Query using parameterized query with ? placeholder
-    cursor.execute("SELECT id, title, done FROM tasks WHERE id = ?", (id,))
-    row = cursor.fetchone()
-    conn.close()
-    
-    if row is not None:
-        return {
-            "id": row[0],
-            "title": row[1],
-            "done": bool(row[2])
-        }
+    task = repository.get_task(id)
+    if task is not None:
+        return task
     
     # Task not found, return 404 Response
     return JSONResponse(

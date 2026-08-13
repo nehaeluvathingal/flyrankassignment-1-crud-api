@@ -1,6 +1,7 @@
 import os
 import psycopg
 from dotenv import load_dotenv
+from typing import Optional, List, Dict, Any
 
 # Load environment variables from .env file
 load_dotenv()
@@ -46,3 +47,27 @@ def init_db():
                 # Reset PostgreSQL serial sequence tracker so subsequent auto-increment IDs start at 4
                 cursor.execute("SELECT setval(pg_get_serial_sequence('tasks', 'id'), COALESCE(MAX(id), 1)) FROM tasks")
                 conn.commit()
+
+def get_tasks() -> List[Dict[str, Any]]:
+    """
+    Retrieve all tasks from PostgreSQL database.
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, title, done FROM tasks ORDER BY id")
+            rows = cursor.fetchall()
+            
+    return [{"id": row[0], "title": row[1], "done": bool(row[2])} for row in rows]
+
+def get_task(task_id: int) -> Optional[Dict[str, Any]]:
+    """
+    Retrieve a single task by ID from PostgreSQL database.
+    """
+    with get_db_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT id, title, done FROM tasks WHERE id = %s", (task_id,))
+            row = cursor.fetchone()
+            
+    if row:
+        return {"id": row[0], "title": row[1], "done": bool(row[2])}
+    return None
