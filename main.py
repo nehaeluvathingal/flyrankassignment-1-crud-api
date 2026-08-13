@@ -187,16 +187,37 @@ async def get_task(id: int):
     )
 
 # ---------------------------------------------------------
-# Temporarily Commented Out CRUD Endpoints for Stage 1
+# Stage 2: POST Task (Create) Endpoint using SQLite
 # ---------------------------------------------------------
-# These will be fully migrated to SQLite in Stage 2 and Stage 3.
 
-# @app.post("/tasks", status_code=status.HTTP_201_CREATED)
-# async def create_task(task_in: TaskCreate):
-#     """
-#     POST /tasks
-#     """
-#     pass
+@app.post("/tasks", status_code=status.HTTP_201_CREATED)
+async def create_task(task_in: TaskCreate):
+    """
+    POST /tasks
+    Creates a new task in the SQLite database.
+    - Expects a JSON input containing a 'title' string.
+    - Automatically lets SQLite assign the task ID.
+    - Defaults 'done' to false (0).
+    - Returns the created task with HTTP 201 Created status.
+    """
+    conn = sqlite3.connect(DATABASE_FILE)
+    cursor = conn.cursor()
+    # Parameterized SQL query
+    cursor.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (task_in.title, 0))
+    conn.commit()
+    new_id = cursor.lastrowid
+    conn.close()
+    
+    return {
+        "id": new_id,
+        "title": task_in.title,
+        "done": False
+    }
+
+# ---------------------------------------------------------
+# Temporarily Commented Out CRUD Endpoints for Stage 2
+# ---------------------------------------------------------
+# These will be fully migrated to SQLite in Stage 3.
 
 # @app.put("/tasks/{id}", status_code=status.HTTP_200_OK)
 # async def update_task(id: int, task_in: TaskUpdate):
